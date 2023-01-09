@@ -99,5 +99,17 @@ public class TransactionController {
                 .defaultIfEmpty(ResponseEntity.notFound().build());
     }
 
+    @PostMapping("/consumeCard")
+    public Mono<ResponseEntity<TransactionModel>> consumeCard(@Valid @RequestBody TransactionModel request){
+        log.info("consumeCard executed {}", request);
+        return transactionService.consumeCard(transactionMapper.modelToEntity(request))
+                .map(client -> transactionMapper.entityToModel(client))
+                .flatMap(c ->
+                        Mono.just(ResponseEntity.created(URI.create(String.format("http://%s:%s/%s/%s", name,
+                                        port, "transaction", c.getId())))
+                                .body(c)))
+                .defaultIfEmpty(ResponseEntity.notFound().build());
+    }
+
 
 }

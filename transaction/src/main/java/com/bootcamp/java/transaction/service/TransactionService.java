@@ -109,4 +109,22 @@ public class TransactionService {
                         }));
     }
 
+    public Mono<Transaction> consumeCard(Transaction transaction) {
+        log.debug("consumeCard executed {}", transaction);
+        return commonService.getClientByDocument(transaction.getClient())
+                .switchIfEmpty(Mono.error(new InvalidClientException()))
+                .flatMap(clientModel -> transactionTypeService.findByCodeAndProductCode(transaction.getTransactionType(), transaction.getProductCode())
+                        .switchIfEmpty(Mono.error(new Exception("Transaction type not configured for this product")))
+                        .flatMap(transactionType -> {
+                            commonService.getByCardNumber(transaction.getCardNumber())
+                                    .switchIfEmpty(Mono.error(new Exception("Card not valid")))
+                                    .flatMap(cardModel -> {
+                                        cardModel.setAmountAvailable(cardModel.getAmountAvailable() - transaction.getTransactionAmount());
+                                        cardModel.setAmountOwed(cardModel.getAmountOwed() + transaction.getTransactionAmount());
+                                        return commonService.updateByCardNumber(cardModel);
+                                    });
+                            return transactionRepository.save(transaction);
+                        }));
+    }
+
 }
